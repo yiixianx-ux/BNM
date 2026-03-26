@@ -10,7 +10,7 @@ int Internal::BNM_il2cpp_init(const char *domain_name) {
 
     Unhook(BNM_il2cpp_init_origin);
 
-    Load();
+    if (!states.loading && !states.state) Load();
 
     return ret;
 }
@@ -18,7 +18,7 @@ int Internal::BNM_il2cpp_init(const char *domain_name) {
 IL2CPP::Il2CppClass *Internal::BNM_Class$$FromIl2CppType(IL2CPP::Il2CppReflectionType *type) {
     auto klass = old_BNM_Class$$FromIl2CppType(type);
 
-    if (states.state) return klass;
+    if (states.state || states.loading) return klass;
 
     if (!Internal::il2cppMethods.il2cpp_domain_get) {
         Internal::il2cppMethods.il2cpp_domain_get = (decltype(Internal::il2cppMethods.il2cpp_domain_get)) GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_domain_get));

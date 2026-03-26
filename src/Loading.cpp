@@ -9,11 +9,20 @@ using namespace BNM;
 
 void Internal::Load() {
 #ifdef BNM_ALLOW_MULTI_THREADING_SYNC
-    std::shared_lock lock(loadingMutex);
+    std::unique_lock lock(initMutex);
+#endif
+    if (states.loading || states.state) return;
+    states.loading = true;
+
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+    std::shared_lock loadingLock(loadingMutex);
 #endif
 
     // Load BNM
-    SetupBNM();
+    if (!SetupBNM()) {
+        states.loading = false;
+        return;
+    }
 
     BNM::Internal::LoadDefaults();
 
@@ -31,15 +40,18 @@ void Internal::Load() {
 
 #endif
     states.state = true;
+    states.loading = false;
 
     // Call all events after loading il2cpp
     auto events = onIl2CppLoaded;
-    auto current = events.lastElement->next;
-    do {
-        current->value();
+    if (!events.IsEmpty()) {
+        auto current = events.lastElement->next;
+        do {
+            current->value();
 
-        current = current->next;
-    } while (current != events.lastElement->next);
+            current = current->next;
+        } while (current != events.lastElement->next);
+    }
 }
 
 void *Internal::GetIl2CppMethod(const char *methodName) {
@@ -291,7 +303,7 @@ void *Utils::OffsetInLib(void *offsetInMemory) {
 }
 #endif
 
-void Internal::SetupBNM() {
+bool Internal::SetupBNM() {
 #if defined(__ARM_ARCH_7A__) || defined(__aarch64__)
     const uint8_t count = 1;
 #elif defined(__i386__) || defined(__x86_64__)
@@ -300,11 +312,12 @@ void Internal::SetupBNM() {
 #endif
 
     //! il2cpp::vm::Class::Init
-    // Path:
-    // il2cpp_array_new_specific ->
-    // il2cpp::vm::Array::NewSpecific ->
-    // il2cpp::vm::Class::Init
-    il2cppMethods.Class$$Init = (decltype(il2cppMethods.Class$$Init)) AssemblerUtils::FindNextJump(AssemblerUtils::FindNextJump((BNM_PTR) GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_array_new_specific)), count), count);
+    auto array_new_specific = (BNM_PTR) GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_array_new_specific));
+    if (!array_new_specific) {
+        BNM_LOG_ERR("BNM: Failed to find il2cpp_array_new_specific. CRITICAL ERROR.");
+        return false;
+    }
+    il2cppMethods.Class$$Init = (decltype(il2cppMethods.Class$$Init)) AssemblerUtils::FindNextJump(AssemblerUtils::FindNextJump(array_new_specific, count), count);
     BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_Class_Init, OffsetInLib((void *)il2cppMethods.Class$$Init));
 
 
@@ -431,6 +444,10 @@ void Internal::SetupBNM() {
     auto stringClass = Class(BNM_OBFUSCATE_TMP("System"), BNM_OBFUSCATE_TMP("String"), mscorlib);
     auto interlockedClass = Class(BNM_OBFUSCATE_TMP("System.Threading"), BNM_OBFUSCATE_TMP("Interlocked"), mscorlib);
     auto objectClass = Class(BNM_OBFUSCATE_TMP("System"), BNM_OBFUSCATE_TMP("Object"), mscorlib);
+    if (!objectClass._data) {
+        BNM_LOG_ERR("BNM: Failed to find System.Object. CRITICAL ERROR.");
+        return;
+    }
     for (uint16_t slot = 0; slot < objectClass._data->vtable_count; slot++) {
         const BNM::IL2CPP::MethodInfo* vMethod = objectClass._data->vtable[slot].method;
         if (strcmp(vMethod->name, BNM_OBFUSCATE_TMP("Finalize")) != 0) continue;
@@ -450,6 +467,10 @@ void Internal::SetupBNM() {
     vmData.String$$Empty = stringClass.GetField(BNM_OBFUSCATE_TMP("Empty")).cast<Structures::Mono::String *>().GetPointer();
 
     auto listClass = vmData.System$$List = Class(BNM_OBFUSCATE_TMP("System.Collections.Generic"), BNM_OBFUSCATE_TMP("List`1"));
+    if (!listClass._data) {
+        BNM_LOG_ERR("BNM: Failed to find System.Collections.Generic.List`1. Modding might be limited.");
+        return;
+    }
     auto cls = listClass._data;
     auto size = sizeof(IL2CPP::Il2CppClass) + cls->vtable_count * sizeof(IL2CPP::VirtualInvokeData);
     listClass._data = (IL2CPP::Il2CppClass *) BNM_malloc(size);
@@ -485,6 +506,8 @@ void Internal::SetupBNM() {
     }
     listClass._data->methods = (const IL2CPP::MethodInfo **) newMethods;
     customListTemplateClass = listClass;
+
+    return true;
 }
 
 void Loading::AddOnLoadedEvent(void (*event)()) {

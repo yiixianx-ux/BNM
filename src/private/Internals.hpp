@@ -18,6 +18,7 @@
 
 #ifdef BNM_ALLOW_MULTI_THREADING_SYNC
 #include <shared_mutex>
+#include <mutex>
 #endif
 
 /// @cond
@@ -28,10 +29,15 @@ namespace BNM::Internal {
     struct States {
         uint8_t state : 1{};
         uint8_t lateInitAllowed : 1{};
+        uint8_t loading : 1{};
     } extern states;
     extern void *il2cppLibraryHandle;
     extern Loading::MethodFinder currentFinderMethod;
     extern void *currentFinderData;
+
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+    extern std::recursive_mutex initMutex;
+#endif
 
     //! \internal
     // A list with variables from the il2cpp VM
@@ -103,7 +109,7 @@ namespace BNM::Internal {
     extern IL2CPP::Il2CppClass *(*old_BNM_Class$$FromIl2CppType)(IL2CPP::Il2CppReflectionType*);
     IL2CPP::Il2CppClass *BNM_Class$$FromIl2CppType(IL2CPP::Il2CppReflectionType *type);
 
-    void SetupBNM();
+    bool SetupBNM();
 
     void LoadDefaults();
 

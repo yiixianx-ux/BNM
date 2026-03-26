@@ -25,62 +25,61 @@ static_assert(false, "ByNameModding requires C++20 and above!");
 //#define UNITY_VER 232 // 2023.2.x+
 //#define UNITY_VER 233 // 6000.x+ // 6000.0.59f2
 
-#define UNITY_PATCH_VER 32 // Для особых случаев (For special cases)
+#define UNITY_PATCH_VER 32 // For special cases
+                           // Untuk kasus khusus
 
-//! Включить устаревший код (если есть)
 //! Allow to use deprecated methods (if any)
+//! Izinkan penggunaan metode usang (jika ada)
 // #define BNM_DEPRECATED
 
-//! Разрешить использование кода для синхронизации потоков
-//! Рекомендуется отключать при внутреннем использовании
 //! Allow the use of code to synchronize streams
 //! It is recommended to disable it during internal use
-// #define BNM_ALLOW_MULTI_THREADING_SYNC
+//! Izinkan penggunaan kode untuk menyinkronkan alur
+//! Disarankan untuk menonaktifkannya saat penggunaan internal
+#define BNM_ALLOW_MULTI_THREADING_SYNC
 
-//! Для System.Collections.Generic.Dictionary (Dictionary)
-//! Если игра использует .NET 3.5 раскомментируйте этот define
-//! .NET 3.5 устарел, но часть старых игр используют его
 //! For the System.Collections.Generic.Dictionary (Dictionary)
 //! If game uses .NET 3.5 uncomment this define
 //! .NET 3.5 is outdated, but some older games use it
+//! Untuk System.Collections.Generic.Dictionary (Dictionary)
+//! Jika game menggunakan .NET 3.5, hapus komentar pada define ini
+//! .NET 3.5 sudah usang, tetapi beberapa game lama masih menggunakannya
 // #define BNM_DOTNET35
 
-//! Включить код создания новых классов и модификации существующих
 //! Allow code for creating new classes and modifying existing ones
+//! Izinkan kode untuk membuat kelas baru dan memodifikasi yang sudah ada
 #define BNM_CLASSES_MANAGEMENT
 
-//! Включить код создания coroutine. ТРЕБУЕТСЯ ClassesManagement!
 //! Enable coroutine creation code. REQUIRES ClassesManagement!
+//! Aktifkan kode pembuatan coroutine. MEMERLUKAN ClassesManagement!
 #define BNM_COROUTINE
 
-//! Отключить авто подмену через таблицу виртуальных методов в ClassesManagement
 //! Disable auto hook via virtual method table in ClassesManagement
+//! Nonaktifkan auto hook melalui tabel metode virtual di ClassesManagement
 // #define BNM_AUTO_HOOK_DISABLE_VIRTUAL_HOOK
 
-//! Старые добрые времена...
 //! The good old days...
+//! Masa-masa indah dulu...
 // #define BNM_OLD_GOOD_DAYS
 
-//! Использовать аллокатор il2cpp для Mono массивов вместо базового
 //! Use il2cpp's allocator for Mono arrays instead of basic
+//! Gunakan alokator il2cpp untuk array Mono alih-alih yang dasar
 #define BNM_USE_IL2CPP_ALLOCATOR
 
-#ifndef NDEBUG
-
-//! Методы str() в структурах
 //! str() methods in structures
+//! Metode str() dalam struktur
 #define BNM_ALLOW_STR_METHODS
 
-//! Использовать signal в IsAllocated
 //! Use signal in IsAllocated
+//! Gunakan signal di IsAllocated
 #define BNM_ALLOW_SAFE_IS_ALLOCATED
 
-//! Проверять объекты mono в их методах
 //! Check mono's objects in their methods
+//! Periksa objek mono dalam metodenya
 #define BNM_ALLOW_SELF_CHECKS
 
-//! Проверять классы при установке объекта полям и методам
 //! Check classes when setting an instance to fields and methods
+//! Periksa kelas saat menyetel instance ke field dan metode
 #define BNM_CHECK_INSTANCE_TYPE
 
 #define BNM_DEBUG
@@ -91,13 +90,15 @@ static_assert(false, "ByNameModding requires C++20 and above!");
 
 #define BNM_WARNING
 
+#ifndef NDEBUG
+
 #endif
 
-//! Добавьте ваш шифровщик строк
 //! Add your string encryptor
+//! Tambahkan pengenkripsi string Anda
 #define BNM_OBFUSCATE(str) str // const char *
 //! Data obfuscated using this macro, can be freed, after BNM loaded. Only for advanced users! If you don't know what and how, just use your basic macro here.
-//! Данные, защифрованне этим define, могут быть удалены после загрузки BNM. Только для опытных пользователей! Если вы не знаете, что и как, просто используйте свой базовый define.
+//! Data yang dikaburkan menggunakan makro ini dapat dibebaskan setelah BNM dimuat. Hanya untuk pengguna tingkat lanjut! Jika Anda tidak tahu apa dan bagaimana, gunakan saja makro dasar Anda di sini.
 #define BNM_OBFUSCATE_TMP(str) str // const char *
 
 // Shadowhook
@@ -167,8 +168,8 @@ inline void Unhook(PTR_T ptr) {
 
 #include <dlfcn.h>
 
-// Если вам нужно скрыть вызовы dlfcn или использовать ваш dl для загрузки BNM в игре извне
 // If you need to hide dlfcn calls or use your dl to load BNM in the game from the outside
+// Jika Anda perlu menyembunyikan panggilan dlfcn atau menggunakan dl Anda untuk memuat BNM di game dari luar
 #define BNM_dlopen dlopen
 #define BNM_dlsym dlsym
 #define BNM_dlclose dlclose
@@ -176,8 +177,8 @@ inline void Unhook(PTR_T ptr) {
 
 #include <cstdlib>
 
-// Если вам нужно скрыть методы работы с памятью
 // If you need to hide memory management methods
+// Jika Anda perlu menyembunyikan metode manajemen memori
 #define BNM_malloc malloc
 #define BNM_free free
 

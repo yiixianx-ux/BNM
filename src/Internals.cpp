@@ -30,6 +30,7 @@ namespace BNM::Internal {
 
 #ifdef BNM_ALLOW_MULTI_THREADING_SYNC
     std::shared_mutex loadingMutex{};
+    std::recursive_mutex initMutex{};
 #endif
 
 #ifdef BNM_CLASSES_MANAGEMENT
