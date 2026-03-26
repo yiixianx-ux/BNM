@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector>
-
+#include <cmath>
 #include "Vector2.hpp"
 
 namespace BNM::Structures::Unity {

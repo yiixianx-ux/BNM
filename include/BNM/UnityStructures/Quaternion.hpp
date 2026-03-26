@@ -1,5 +1,5 @@
 #pragma once
-
+#include <cmath>
 #include "Vector3.hpp"
 
 namespace BNM::Structures::Unity {
