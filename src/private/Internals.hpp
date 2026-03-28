@@ -171,11 +171,15 @@ namespace BNM::Internal {
 
         void ProcessCustomClasses();
 
+        void TrackAllocation(void *ptr);
+        void FreeAllAllocations();
+
         //! \internal
         // Structure for quick search classes by their images
         extern struct BNMClassesMap {
             inline BNMClassesMap() {
                 _map = new (BNM_malloc(sizeof(std::map<BNM_PTR, std::vector<IL2CPP::Il2CppClass *>>))) std::map<BNM_PTR, std::vector<IL2CPP::Il2CppClass *>>();
+                TrackAllocation(_map);
             }
             inline void AddClass(const IL2CPP::Il2CppImage *image, IL2CPP::Il2CppClass *cls) {
                 return AddClass((BNM_PTR)image, cls);
@@ -183,7 +187,7 @@ namespace BNM::Internal {
 
             inline void AddClass(BNM_PTR image, IL2CPP::Il2CppClass *cls) {
 #ifdef BNM_ALLOW_MULTI_THREADING_SYNC
-                std::shared_lock lock(classesFindAccessMutex);
+                std::unique_lock lock(classesFindAccessMutex);
 #endif
                 (*_map)[image].emplace_back(cls);
             }

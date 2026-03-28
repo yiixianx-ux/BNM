@@ -11,18 +11,25 @@
 
 using namespace BNM;
 
+static inline void *BNM_malloc_tracked(size_t size) {
+    void *ptr = BNM_malloc(size);
+    Internal::ClassesManagement::TrackAllocation(ptr);
+    return ptr;
+}
+#define BNM_MALLOC_TRACKED(size) BNM_malloc_tracked(size)
+
 void MANAGEMENT_STRUCTURES::AddClass(CustomClass *_class) {
 #ifdef BNM_ALLOW_MULTI_THREADING_SYNC
     std::unique_lock lock(Internal::ClassesManagement::classesFindAccessMutex);
 #endif
     if (!Internal::ClassesManagement::classesManagementVector)
-        Internal::ClassesManagement::classesManagementVector = new (BNM_malloc(sizeof(std::vector<MANAGEMENT_STRUCTURES::CustomClass *>))) std::vector<MANAGEMENT_STRUCTURES::CustomClass *>();
+        Internal::ClassesManagement::classesManagementVector = new (BNM_MALLOC_TRACKED(sizeof(std::vector<MANAGEMENT_STRUCTURES::CustomClass *>))) std::vector<MANAGEMENT_STRUCTURES::CustomClass *>();
 
     Internal::ClassesManagement::classesManagementVector->push_back(_class);
 }
 
 
-#define BNM_I2C_NEW(type) (IL2CPP::type *) BNM_malloc(sizeof(IL2CPP::type))
+#define BNM_I2C_NEW(type) (IL2CPP::type *) BNM_MALLOC_TRACKED(sizeof(IL2CPP::type))
 
 struct CustomClassInfo {
     const char *_namespace{}, *_name{}, *_imageName{};
@@ -127,7 +134,7 @@ static void ModifyClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, Class t
         }
 
         if (!methodsToAdd.empty()) {
-            auto newMethods = (IL2CPP::MethodInfo **) BNM_malloc((oldCount + methodsToAdd.size()) * sizeof(IL2CPP::MethodInfo *));
+            auto newMethods = (IL2CPP::MethodInfo **) BNM_MALLOC_TRACKED((oldCount + methodsToAdd.size()) * sizeof(IL2CPP::MethodInfo *));
 
             auto oldSize = oldCount * sizeof(IL2CPP::MethodInfo *);
 
@@ -146,7 +153,7 @@ static void ModifyClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, Class t
     if (newFieldsCount) {
         auto oldCount = klass->field_count;
 
-        auto newFields = (IL2CPP::FieldInfo *) BNM_malloc((oldCount + newFieldsCount) * sizeof(IL2CPP::FieldInfo));
+        auto newFields = (IL2CPP::FieldInfo *) BNM_MALLOC_TRACKED((oldCount + newFieldsCount) * sizeof(IL2CPP::FieldInfo));
 
         if (oldCount) memcpy(newFields, klass->fields, oldCount * sizeof(IL2CPP::FieldInfo));
 
@@ -224,7 +231,7 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
 
     // Create all new methods
     uint8_t hasFinalize = 0;
-    auto methods = (const IL2CPP::MethodInfo **) BNM_malloc(customClass->_methods.size() * sizeof(IL2CPP::MethodInfo *));
+    auto methods = (const IL2CPP::MethodInfo **) BNM_MALLOC_TRACKED(customClass->_methods.size() * sizeof(IL2CPP::MethodInfo *));
 
     for (size_t i = 0; i < customClass->_methods.size(); ++i) {
         auto method = customClass->_methods[i];
@@ -269,19 +276,19 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
 
     }
 
-    auto klass = customClass->myClass = (IL2CPP::Il2CppClass *) BNM_malloc(sizeof(IL2CPP::Il2CppClass) + newVTable.size() * sizeof(IL2CPP::VirtualInvokeData));
+    auto klass = customClass->myClass = (IL2CPP::Il2CppClass *) BNM_MALLOC_TRACKED(sizeof(IL2CPP::Il2CppClass) + newVTable.size() * sizeof(IL2CPP::VirtualInvokeData));
     memset(klass, 0, sizeof(IL2CPP::Il2CppClass) + newVTable.size() * sizeof(IL2CPP::VirtualInvokeData));
 
     klass->image = image;
 
     auto len = strlen(classInfo._name);
-    klass->name = (char *) BNM_malloc(len + 1);
+    klass->name = (char *) BNM_MALLOC_TRACKED(len + 1);
     memcpy((void *)klass->name, classInfo._name, len);
     ((char *)klass->name)[len] = 0;
 
     if (!owner && classInfo._namespace) {
         len = strlen(classInfo._namespace);
-        klass->namespaze = (char *) BNM_malloc(len + 1);
+        klass->namespaze = (char *) BNM_MALLOC_TRACKED(len + 1);
         memcpy((void *)klass->namespaze, classInfo._namespace, len);
         ((char *)klass->namespaze)[len] = 0;
     } else klass->namespaze = &forEmptyString;
@@ -311,7 +318,7 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
     klass->field_count = customClass->_fields.size();
     if (klass->field_count > 0) {
         // Create a list of fields
-        auto fields = (IL2CPP::FieldInfo *) BNM_malloc(klass->field_count * sizeof(IL2CPP::FieldInfo));
+        auto fields = (IL2CPP::FieldInfo *) BNM_MALLOC_TRACKED(klass->field_count * sizeof(IL2CPP::FieldInfo));
 
         // Get the first field
         IL2CPP::FieldInfo *newField = fields;
@@ -330,7 +337,7 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
     // Add Interfaces
     if (!interfaces.empty()) {
         klass->interfaces_count = interfaces.size();
-        klass->implementedInterfaces = (IL2CPP::Il2CppClass **) BNM_malloc(interfaces.size() * sizeof(IL2CPP::Il2CppClass *));
+        klass->implementedInterfaces = (IL2CPP::Il2CppClass **) BNM_MALLOC_TRACKED(interfaces.size() * sizeof(IL2CPP::Il2CppClass *));
         memcpy(klass->implementedInterfaces, interfaces.data(), interfaces.size() * sizeof(IL2CPP::Il2CppClass *));
     } else {
         klass->interfaces_count = 0;
@@ -358,7 +365,7 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
 
     // Set interface addresses
     klass->interface_offsets_count = newInterOffsets.size();
-    klass->interfaceOffsets = (IL2CPP::Il2CppRuntimeInterfaceOffsetPair *) BNM_malloc(newInterOffsets.size() * sizeof(IL2CPP::Il2CppRuntimeInterfaceOffsetPair));
+    klass->interfaceOffsets = (IL2CPP::Il2CppRuntimeInterfaceOffsetPair *) BNM_MALLOC_TRACKED(newInterOffsets.size() * sizeof(IL2CPP::Il2CppRuntimeInterfaceOffsetPair));
     memcpy(klass->interfaceOffsets, newInterOffsets.data(), newInterOffsets.size() * sizeof(IL2CPP::Il2CppRuntimeInterfaceOffsetPair));
 
     klass->interopData = nullptr;
@@ -513,11 +520,11 @@ static IL2CPP::Il2CppImage *MakeImage(std::string_view imageName) {
 
     auto nameLen = imageName.size();
 #if UNITY_VER >= 171
-    newImg->nameNoExt = (char *) BNM_malloc(nameLen + 1);
+    newImg->nameNoExt = (char *) BNM_MALLOC_TRACKED(nameLen + 1);
     memcpy((void *)newImg->nameNoExt, (void *)imageName.data(), nameLen);
     ((char *)newImg->nameNoExt)[nameLen] = 0;
 #endif
-    newImg->name = (char *) BNM_malloc(nameLen + 5);
+    newImg->name = (char *) BNM_MALLOC_TRACKED(nameLen + 5);
     memcpy((void *)newImg->name, (void *)imageName.data(), nameLen);
     auto nameEnd = ((char *)(newImg->name + nameLen));
     nameEnd[0] = '.'; nameEnd[1] = 'd'; nameEnd[2] = 'l'; nameEnd[3] = 'l'; nameEnd[4] = 0;
@@ -534,7 +541,7 @@ static IL2CPP::Il2CppImage *MakeImage(std::string_view imageName) {
 
 #if UNITY_VER > 201
     // Create an empty Il2CppImageDefinition
-    auto handle = (IL2CPP::Il2CppImageDefinition *) BNM_malloc(sizeof(IL2CPP::Il2CppImageDefinition));
+    auto handle = (IL2CPP::Il2CppImageDefinition *) BNM_MALLOC_TRACKED(sizeof(IL2CPP::Il2CppImageDefinition));
     memset(handle, 0, sizeof(IL2CPP::Il2CppImageDefinition));
     handle->typeStart = -1;
     handle->entryPointIndex = -1;
@@ -723,7 +730,7 @@ static IL2CPP::MethodInfo *CreateMethod(MANAGEMENT_STRUCTURES::CustomMethod *met
     myInfo->virtualMethodPointer = (decltype(myInfo->virtualMethodPointer)) method->_address;
 #endif
 
-    auto name = (char *) BNM_malloc(method->_name.size() + 1);
+    auto name = (char *) BNM_MALLOC_TRACKED(method->_name.size() + 1);
     memcpy((void *)name, method->_name.data(), method->_name.size());
     name[method->_name.size()] = 0;
     myInfo->name = name;
@@ -753,7 +760,7 @@ static IL2CPP::MethodInfo *CreateMethod(MANAGEMENT_STRUCTURES::CustomMethod *met
     if (argsCount) {
         auto &types = method->_parameterTypes;
 #if UNITY_VER < 212
-        myInfo->parameters = (IL2CPP::ParameterInfo *) BNM_malloc(argsCount * sizeof(IL2CPP::ParameterInfo));
+        myInfo->parameters = (IL2CPP::ParameterInfo *) BNM_MALLOC_TRACKED(argsCount * sizeof(IL2CPP::ParameterInfo));
 
         auto parameter = (IL2CPP::ParameterInfo *)myInfo->parameters;
         for (uint8_t p = 0; p < argsCount; ++p) {
@@ -771,7 +778,7 @@ static IL2CPP::MethodInfo *CreateMethod(MANAGEMENT_STRUCTURES::CustomMethod *met
         }
 #else
 
-        auto parameters = (IL2CPP::Il2CppType **) BNM_malloc(argsCount * sizeof(IL2CPP::Il2CppType *));
+        auto parameters = (IL2CPP::Il2CppType **) BNM_MALLOC_TRACKED(argsCount * sizeof(IL2CPP::Il2CppType *));
 
         myInfo->parameters = (const IL2CPP::Il2CppType **) parameters;
         for (uint8_t p = 0; p < argsCount; ++p) {
@@ -798,7 +805,7 @@ static IL2CPP::MethodInfo *CreateMethod(MANAGEMENT_STRUCTURES::CustomMethod *met
 static void SetupField(IL2CPP::FieldInfo *newField, MANAGEMENT_STRUCTURES::CustomField *field) {
     auto name = field->_name;
     auto len = name.size();
-    newField->name = (char *) BNM_malloc(len + 1);
+    newField->name = (char *) BNM_MALLOC_TRACKED(len + 1);
     memcpy((void *)newField->name, name.data(), len);
     ((char *)newField->name)[len] = 0;
 
@@ -821,7 +828,7 @@ static void SetupClassOwner(IL2CPP::Il2CppClass *target, IL2CPP::Il2CppClass *ow
     target->declaringType = owner;
 
     // Add a class to the new owner's list
-    auto newInnerList = (IL2CPP::Il2CppClass **) BNM_malloc(sizeof(IL2CPP::Il2CppClass) * (owner->nested_type_count + 1));
+    auto newInnerList = (IL2CPP::Il2CppClass **) BNM_MALLOC_TRACKED(sizeof(IL2CPP::Il2CppClass) * (owner->nested_type_count + 1));
     memcpy(newInnerList, owner->nestedTypes, sizeof(IL2CPP::Il2CppClass) * owner->nested_type_count);
     newInnerList[owner->nested_type_count++] = target;
     owner->nestedTypes = newInnerList;
@@ -833,7 +840,7 @@ static void SetupClassOwner(IL2CPP::Il2CppClass *target, IL2CPP::Il2CppClass *ow
     // Remove a class from the old owner's list
     if (oldOwner) {
         oldInnerList = oldOwner->nestedTypes;
-        newInnerList = (IL2CPP::Il2CppClass **) BNM_malloc(sizeof(IL2CPP::Il2CppClass) * (oldOwner->nested_type_count - 1));
+        newInnerList = (IL2CPP::Il2CppClass **) BNM_MALLOC_TRACKED(sizeof(IL2CPP::Il2CppClass) * (oldOwner->nested_type_count - 1));
         uint8_t skipped = 0;
         for (uint16_t i = 0; i < oldOwner->nested_type_count; ++i) {
             if (skipped == 0) if (skipped = (oldInnerList[i] == target); skipped) continue;
@@ -856,7 +863,7 @@ static void SetupClassParent(IL2CPP::Il2CppClass *target, IL2CPP::Il2CppClass *p
     target->flags |= BNM_CLASS_ALLOCATED_HIERARCHY_FLAG;
 
     target->typeHierarchyDepth = parent->typeHierarchyDepth + 1;
-    target->typeHierarchy = (IL2CPP::Il2CppClass **) BNM_malloc(target->typeHierarchyDepth * sizeof(IL2CPP::Il2CppClass *));
+    target->typeHierarchy = (IL2CPP::Il2CppClass **) BNM_MALLOC_TRACKED(target->typeHierarchyDepth * sizeof(IL2CPP::Il2CppClass *));
     memcpy(target->typeHierarchy, parent->typeHierarchy, parent->typeHierarchyDepth * sizeof(IL2CPP::Il2CppClass *));
     target->typeHierarchy[parent->typeHierarchyDepth] = target;
     target->parent = parent;

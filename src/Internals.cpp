@@ -51,6 +51,27 @@ namespace BNM::Internal {
         IL2CPP::Il2CppImage *(*old_GetImageFromIndex)(IL2CPP::ImageIndex index){};
 #endif
         BNMClassesMap bnmClassesMap{};
+
+        // Track allocations made with BNM_malloc during runtime class creation
+        std::vector<void *> allocatedMemory{};
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+        std::mutex memoryTrackerMutex{};
+#endif
+        void TrackAllocation(void *ptr) {
+            if (!ptr) return;
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+            std::lock_guard lock(memoryTrackerMutex);
+#endif
+            allocatedMemory.push_back(ptr);
+        }
+
+        void FreeAllAllocations() {
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+            std::lock_guard lock(memoryTrackerMutex);
+#endif
+            for (auto ptr : allocatedMemory) BNM_free(ptr);
+            allocatedMemory.clear();
+        }
     }
 #endif
 }

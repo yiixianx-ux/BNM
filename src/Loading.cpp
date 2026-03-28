@@ -228,8 +228,18 @@ namespace AssemblerUtils {
     // Read the memory as a hexadecimal string
     template<size_t len>
     static std::string ReadMemory(BNM_PTR address) {
-        char temp[len]; memset(temp, 0, len);
         std::string ret{};
+        if (address == 0) return ret;
+
+#ifdef BNM_DEBUG
+        Dl_info info;
+        if (BNM_dladdr((void *)address, &info) == 0) {
+            BNM_LOG_ERR("BNM: Attempted to read memory outside of loaded libraries at %p", (void *)address);
+            return ret;
+        }
+#endif
+
+        char temp[len]; memset(temp, 0, len);
         if (memcpy(temp, (void *)address, len) == nullptr) return ret;
         ret.resize(len * 2, 0);
         auto buf = (char *)ret.data();
