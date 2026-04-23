@@ -205,4 +205,4 @@ auto intListClass = Class("System.Collections.Generic", "List`1").GetGeneric({De
 
 ---
 
-*Documentation generated for BNM Version 2.5.2*
+*Documentation generated for BNM Version 2.5.3*

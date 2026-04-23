@@ -1,3 +1,5 @@
+#pragma once
+#include <cassert>
 #if __cplusplus < 202002L
 static_assert(false, "ByNameModding requires C++20 and above!");
 #endif
@@ -8,8 +10,6 @@ static_assert(sizeof(void*) == 8, "BNM: Compilation for 64-bit architecture dete
 #else
 static_assert(sizeof(void*) == 4, "BNM: Compilation for 32-bit architecture detected, but pointer size is not 4 bytes!");
 #endif
-
-#pragma once
 
 //#define UNITY_VER 56 // 5.6.4f1
 //#define UNITY_VER 171 // 2017.1.x
@@ -133,6 +133,7 @@ inline void Unhook(PTR_T ptr) {
 */
 
 
+
 // Dobby
 /*
 #include <dobby.h>
@@ -155,8 +156,8 @@ inline void Unhook(PTR_T ptr) {
 }
 */
 
+
 // Dummy
-#include <cassert>
 
 static_assert(false, "No hooking software!");
 
@@ -177,8 +178,9 @@ inline void Unhook(PTR_T ptr) {
     if ((void *) ptr != nullptr) ((void)0);
 }
 
-#include <dlfcn.h>
 
+
+#include <dlfcn.h>
 // If you need to hide dlfcn calls or use your dl to load BNM in the game from the outside
 // Jika Anda perlu menyembunyikan panggilan dlfcn atau menggunakan dl Anda untuk memuat BNM di game dari luar
 #define BNM_dlopen dlopen
@@ -243,4 +245,4 @@ namespace BNM {
 #endif
 }
 
-#define BNM_VER "2.5.2"
+#define BNM_VER "2.5.3"
