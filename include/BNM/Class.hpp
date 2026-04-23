@@ -2,6 +2,7 @@
 
 #include <string>
 #include <string_view>
+#include <span>
 
 #include "UserSettings/GlobalSettings.hpp"
 #include "Il2CppHeaders.hpp"
@@ -96,6 +97,27 @@ namespace BNM {
         Class(const std::string_view &_namespace, const std::string_view &name, const BNM::Image &image);
 
         /**
+            @brief Get all interfaces implemented by target class.
+
+            Gets all interfaces implemented by target class and of its parents.
+
+            @param includeParent Should include interfaces from parents
+
+            @return Vector of interfaces if anyone of them exists.
+        */
+        [[nodiscard]] std::vector<BNM::Class> GetInterfaces(bool includeParent = true) const;
+
+        /**
+            @brief Get interfaces of target class as a span.
+
+            Gets interfaces of target class.
+
+            @return Span of interfaces if anyone of them exists.
+        */
+        [[nodiscard]] std::span<BNM::IL2CPP::Il2CppClass *> GetInterfacesSpan() const;
+
+
+        /**
             @brief Get all inner classes of target class.
 
             Gets all inner classes of target class and of its parents.
@@ -105,6 +127,15 @@ namespace BNM {
             @return Vector of inner classes if anyone of them exists.
         */
         [[nodiscard]] std::vector<BNM::Class> GetInnerClasses(bool includeParent = true) const;
+
+        /**
+            @brief Get inner classes of target class as a span.
+
+            Gets inner classes of target class.
+
+            @return Span of inner classes if anyone of them exists.
+        */
+        [[nodiscard]] std::span<BNM::IL2CPP::Il2CppClass *> GetInnerClassesSpan() const;
 
         /**
             @brief Get all fields of target class.
@@ -118,6 +149,15 @@ namespace BNM {
         [[nodiscard]] std::vector<BNM::FieldBase> GetFields(bool includeParent = true) const;
 
         /**
+            @brief Get fields of target class as a span.
+
+            Gets fields of target class.
+
+            @return Span of fields if anyone of them exists.
+        */
+        [[nodiscard]] std::span<BNM::IL2CPP::FieldInfo> GetFieldsSpan() const;
+
+        /**
             @brief Get all methods of target class.
 
             Gets all methods of target class and of its parents.
@@ -127,6 +167,15 @@ namespace BNM {
             @return Vector of methods if anyone of them exists.
         */
         [[nodiscard]] std::vector<BNM::MethodBase> GetMethods(bool includeParent = true) const;
+
+        /**
+            @brief Get methods of target class as a span.
+
+            Gets methods of target class.
+
+            @return Span of methods if anyone of them exists.
+        */
+        [[nodiscard]] std::span<const BNM::IL2CPP::MethodInfo *> GetMethodsSpan() const;
 
         /**
             @brief Get all properties of target class.

@@ -53,18 +53,42 @@ Class::Class(const std::string_view &_namespace, const std::string_view &_name, 
     BNM_LOG_WARN(DBG_BNM_MSG_Class_Constructor_Image_NotFound, image.str().data(), _namespace.data(), _name.data());
 }
 
+std::span<const BNM::IL2CPP::MethodInfo *> Class::GetMethodsSpan() const {
+    if (!_data) return {};
+    TryInit();
+    return {_data->methods, _data->method_count};
+}
+
+std::span<BNM::IL2CPP::FieldInfo> Class::GetFieldsSpan() const {
+    if (!_data) return {};
+    TryInit();
+    return {_data->fields, _data->field_count};
+}
+
+std::span<BNM::IL2CPP::Il2CppClass *> Class::GetInnerClassesSpan() const {
+    if (!_data) return {};
+    TryInit();
+    return {_data->nestedTypes, _data->nested_type_count};
+}
+
+std::span<BNM::IL2CPP::Il2CppClass *> Class::GetInterfacesSpan() const {
+    if (!_data) return {};
+    TryInit();
+    return {_data->implementedInterfaces, _data->interfaces_count};
+}
+
 std::vector<Class> Class::GetInnerClasses(bool includeParent) const {
     BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
     if (!_data) return {};
     TryInit();
     std::vector<Class> ret{};
-    auto curClass = _data;
+    Class curClass = *this;
 
     do {
-        for (uint16_t i = 0; i < curClass->nested_type_count; ++i) ret.emplace_back(curClass->nestedTypes[i]);
-        if (includeParent) curClass = curClass->parent;
+        for (auto cls : curClass.GetInnerClassesSpan()) ret.emplace_back(cls);
+        if (includeParent) curClass = curClass.GetParent();
         else break;
-    } while (curClass);
+    } while (curClass._data);
 
     return ret;
 }
@@ -74,14 +98,13 @@ std::vector<FieldBase> Class::GetFields(bool includeParent) const {
     if (!_data) return {};
     TryInit();
     std::vector<FieldBase> ret{};
-    auto curClass = _data;
+    Class curClass = *this;
 
     do {
-        auto end = curClass->fields + curClass->field_count;
-        for (IL2CPP::FieldInfo *currentField = curClass->fields; currentField != end; ++currentField) ret.emplace_back(currentField);
-        if (includeParent) curClass = curClass->parent;
+        for (auto &field : curClass.GetFieldsSpan()) ret.emplace_back(&field);
+        if (includeParent) curClass = curClass.GetParent();
         else break;
-    } while (curClass);
+    } while (curClass._data);
 
     return ret;
 }
@@ -91,13 +114,29 @@ std::vector<MethodBase> Class::GetMethods(bool includeParent) const {
     if (!_data) return {};
     TryInit();
     std::vector<MethodBase> ret{};
-    auto curClass = _data;
+    Class curClass = *this;
 
     do {
-        for (uint16_t i = 0; i < curClass->method_count; ++i) ret.emplace_back(curClass->methods[i]);
-        if (includeParent) curClass = curClass->parent;
+        for (auto method : curClass.GetMethodsSpan()) ret.emplace_back(method);
+        if (includeParent) curClass = curClass.GetParent();
         else break;
-    } while (curClass);
+    } while (curClass._data);
+
+    return ret;
+}
+
+std::vector<BNM::Class> Class::GetInterfaces(bool includeParent) const {
+    BNM_LOG_ERR_IF(!_data, DBG_BNM_MSG_Class_Dead_Error);
+    if (!_data) return {};
+    TryInit();
+    std::vector<Class> ret{};
+    Class curClass = *this;
+
+    do {
+        for (auto cls : curClass.GetInterfacesSpan()) ret.emplace_back(cls);
+        if (includeParent) curClass = curClass.GetParent();
+        else break;
+    } while (curClass._data);
 
     return ret;
 }
@@ -107,14 +146,15 @@ std::vector<PropertyBase> Class::GetProperties(bool includeParent) const {
     if (!_data) return {};
     TryInit();
     std::vector<PropertyBase> ret{};
-    auto curClass = _data;
+    Class curClass = *this;
 
     do {
-        auto end = curClass->properties + curClass->property_count;
-        for (auto currentProperty = curClass->properties; currentProperty != end; ++currentProperty) ret.emplace_back(currentProperty);
-        if (includeParent) curClass = curClass->parent;
+        auto data = curClass._data;
+        auto end = data->properties + data->property_count;
+        for (auto currentProperty = data->properties; currentProperty != end; ++currentProperty) ret.emplace_back(currentProperty);
+        if (includeParent) curClass = curClass.GetParent();
         else break;
-    } while (curClass);
+    } while (curClass._data);
 
     return ret;
 }
@@ -124,14 +164,15 @@ std::vector<EventBase> Class::GetEvents(bool includeParent) const {
     if (!_data) return {};
     TryInit();
     std::vector<EventBase> ret{};
-    auto curClass = _data;
+    Class curClass = *this;
 
     do {
-        auto end = curClass->events + curClass->event_count;
-        for (auto currentEvent = curClass->events; currentEvent != end; ++currentEvent) ret.emplace_back(currentEvent);
-        if (includeParent) curClass = curClass->parent;
+        auto data = curClass._data;
+        auto end = data->events + data->event_count;
+        for (auto currentEvent = data->events; currentEvent != end; ++currentEvent) ret.emplace_back(currentEvent);
+        if (includeParent) curClass = curClass.GetParent();
         else break;
-    } while (curClass);
+    } while (curClass._data);
 
     return ret;
 }

@@ -41,7 +41,7 @@ namespace BNM {
 #include "Il2CppHeaders/2023.1.h"
 #else
 #include "Il2CppHeaders/2023.1.h"
-static_assert(false, "Setup UNITY_VER in GlobalSettings.hpp");
+static_assert(false, "BNM: Invalid or missing UNITY_VER in GlobalSettings.hpp! Please select a supported version.");
 #endif
     }
     /// @endcond

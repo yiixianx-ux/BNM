@@ -3,6 +3,18 @@
 ByNameModding is a library for modding of il2cpp games by classes, methods, field names. It includes everything you need for Android Unity games modding.<br>
 Requires C++20 minimum.
 
+## Recent Architectural Refactor (April 2026)
+This version includes a major architectural overhaul focusing on stability, thread-safety, and modern C++ standards:
+- **Robust ARM64 Scanning**: Replaced manual byte scanning with a formal ARM64 instruction decoder for reliable symbol resolution.
+- **Thread-Safe Metadata**: Implemented atomic patching and memory barriers for vtables and method arrays.
+- **Memory Safety**: Introduced RAII-based metadata management and thread-local trackers to prevent leaks.
+- **Modern Access**: Added `std::span` support for high-performance, bounds-checked metadata access.
+
+## ⚠️ Stability & Crash Notes
+While this version significantly improves reliability, please note:
+- **Runtime Modification**: Modifying classes already in use by the Unity engine remains the most common cause of crashes. Always prefer modifying classes during early initialization.
+- **Binary Obfuscation**: Highly protected or obfuscated binaries may still break the symbol scanning logic if standard instruction patterns (ADRP+ADD/LDR) are disrupted.
+- **GC Integrity**: Ensure your custom `Finalize` methods call the base finalizer to prevent memory leaks, despite improvements in BNM's finalizer inheritance.
 
 ## Getting Started
 See documentation on [ByNameModding.github.io](https://bynamemodding.github.io/).

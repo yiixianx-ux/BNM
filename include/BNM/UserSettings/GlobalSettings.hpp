@@ -2,6 +2,13 @@
 static_assert(false, "ByNameModding requires C++20 and above!");
 #endif
 
+// Pointer size validation
+#if defined(__LP64__) || defined(_LP64) || defined(__x86_64__) || defined(__aarch64__)
+static_assert(sizeof(void*) == 8, "BNM: Compilation for 64-bit architecture detected, but pointer size is not 8 bytes!");
+#else
+static_assert(sizeof(void*) == 4, "BNM: Compilation for 32-bit architecture detected, but pointer size is not 4 bytes!");
+#endif
+
 #pragma once
 
 //#define UNITY_VER 56 // 5.6.4f1
@@ -27,6 +34,10 @@ static_assert(false, "ByNameModding requires C++20 and above!");
 
 #define UNITY_PATCH_VER 32 // For special cases
                            // Untuk kasus khusus
+
+#if UNITY_VER == 211 && !defined(UNITY_PATCH_VER)
+static_assert(false, "BNM: For Unity 2021.1.x, you must define UNITY_PATCH_VER in GlobalSettings.hpp!");
+#endif
 
 //! Allow to use deprecated methods (if any)
 //! Izinkan penggunaan metode usang (jika ada)

@@ -243,6 +243,14 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
     } else image = Image(baseImageName);
     if (!image) image = MakeImage(classInfo._imageName);
 
+    // Check if class already exists in the target image to prevent duplicate registration
+    if (auto existingClass = Internal::TryGetClassInImage(image._data, classInfo._namespace ? classInfo._namespace : "", classInfo._name)) {
+        BNM_LOG_WARN("BNM: Class %s::%s already exists in image %s. Switching to ModifyClass instead of CreateClass.",
+                     classInfo._namespace ? classInfo._namespace : "", classInfo._name, image._data->name);
+        ModifyClass(customClass, existingClass);
+        return;
+    }
+
     BNM_LOG_DEBUG(DBG_BNM_MSG_ClassesManagement_CreateClass_Target, classInfo._namespace ? classInfo._namespace : &forEmptyString, classInfo._name, image._data->name);
     
     IL2CPP::Il2CppClass *parent = customClass->_baseType;
@@ -276,7 +284,7 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
     }
 
     // Create all new methods
-    uint8_t hasFinalize = 0;
+    uint8_t hasFinalize = parent->has_finalize;
     std::vector<const IL2CPP::MethodInfo *> methods(customClass->_methods.size());
 
     for (size_t i = 0; i < customClass->_methods.size(); ++i) {
@@ -302,7 +310,7 @@ static void CreateClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, const C
                     if (Class(type).GetClass() != method->_parameterTypes[p].ToIl2CppClass()) goto NEXT;
                 }
 
-                if (!hasFinalize) hasFinalize = v == Internal::finalizerSlot;
+                if (!hasFinalize && Internal::finalizerSlot != -1) hasFinalize = (int32_t)v == Internal::finalizerSlot;
                 method->_origin = (IL2CPP::MethodInfo *) vTable.method;
                 method->_originalAddress = (void *) (vTable.method ? vTable.method->methodPointer : nullptr);
                 method->myInfo->slot = v;
