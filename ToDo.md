@@ -24,9 +24,9 @@ The BNM library provides a sophisticated symbolic modding framework for Unity/IL
 
 ### 2. Initialization & Assembly Scanning (High Risk)
 - [ ] **Formal Disassembly Integration**: Replace the manual byte-scanning in `AssemblerUtils::FindNextJump` with a formal disassembler library (e.g., **Capstone** or **Zydis**) for reliable instruction decoding.
-- [ ] **Stable Symbol Resolution**: Eliminate reliance on "jump counts" to find internal functions like `Class::Init`. Use string literal references or cross-reference scanning.
+- [x] **Stable Symbol Resolution**: Eliminate reliance on "jump counts" to find internal functions like `Class::Init`. Use Majority Voting (Consensus Search) across multiple API paths (il2cpp_array_new, value_box, etc).
 - [ ] **ARM64 Instruction Support**: Extend scanning logic to support indirect branches (`BR`, `BLR`) to handle highly optimized or protected binaries.
-- [ ] **Diagnostic Dumps**: Implement a hex-dump utility to log surrounding bytes when scanning fails, facilitating faster debugging of new Unity versions.
+- [x] **Diagnostic Dumps**: Implement a hex-dump utility to log surrounding bytes when scanning fails, facilitating faster debugging of new Unity versions.
 
 ### 3. Runtime Class Management (High Risk)
 - [ ] **Atomic Patching**: Implement "Safe Patching" for vtables and method arrays to prevent dangling pointers when modifying classes already in use by the engine.

@@ -188,83 +188,46 @@ void Loading::TrySetupByUsersFinder() {
 }
 
 namespace AssemblerUtils {
-    // Reverse hexadecimal string (from 001122 to 221100)
-    static std::string ReverseHexString(const std::string &hex) {
-        std::string out{};
-        for (size_t i = 0; i < hex.length(); i += 2) out.insert(0, hex.substr(i, 2));
-        return out;
-    }
-
-    // Convert hexadecimal string to a value
-    static BNM_PTR HexStr2Value(const std::string &hex) { return strtoull(hex.c_str(), nullptr, 16); }
 
 #if defined(__ARM_ARCH_7A__)
 
-    // Check if the assembly is `bl ...`or `b ...`
-    static bool IsBranchHex(const std::string &hex) {
-        BNM_PTR hexW = HexStr2Value(ReverseHexString(hex));
-        return (hexW & 0x0A000000) == 0x0A000000;
+    // Check if the assembly is `bl ...` or `b ...`
+    static bool IsBranch(BNM_PTR address) {
+        uint32_t insn = *(uint32_t*)address;
+        return (insn & 0x0A000000) == 0x0A000000;
     }
 
 #elif defined(__aarch64__)
 
-    // Check if the assembly is `bl ...`or `b ...`
-    static bool IsBranchHex(const std::string &hex) {
-        BNM_PTR hexW = HexStr2Value(ReverseHexString(hex));
-        return (hexW & 0xFC000000) == 0x14000000 || (hexW & 0xFC000000) == 0x94000000;
+    // Check if the assembly is `bl ...` or `b ...`
+    static bool IsBranch(BNM_PTR address) {
+        uint32_t insn = *(uint32_t*)address;
+        return (insn & 0xFC000000) == 0x14000000 || (insn & 0xFC000000) == 0x94000000;
     }
 
 #elif defined(__i386__) || defined(__x86_64__)
 
     // Check if the assembly is `call ...`
-    static bool IsCallHex(const std::string &hex) { return hex[0] == 'E' && hex[1] == '8'; }
-#elif defined(__riscv)
-#error "Is it released for Android?"
-#else
-#error "BNM only supports arm64, arm, x86 and x86_64"
+    static bool IsCall(BNM_PTR address) { return *(uint8_t*)address == 0xE8; }
 #endif
-    static const char *hexChars = BNM_OBFUSCATE_TMP("0123456789ABCDEF");
-    // Прочитать память, как шестнадцатеричную строку
-    // Read the memory as a hexadecimal string
-    template<size_t len>
-    static std::string ReadMemory(BNM_PTR address) {
-        std::string ret{};
-        if (address == 0) return ret;
-
-#ifdef BNM_DEBUG
-        Dl_info info;
-        if (BNM_dladdr((void *)address, &info) == 0) {
-            BNM_LOG_ERR("BNM: Attempted to read memory outside of loaded libraries at %p", (void *)address);
-            return ret;
-        }
-#endif
-
-        char temp[len]; memset(temp, 0, len);
-        if (memcpy(temp, (void *)address, len) == nullptr) return ret;
-        ret.resize(len * 2, 0);
-        auto buf = (char *)ret.data();
-        for (size_t i = 0; i < len; ++i) {
-            *buf++ = hexChars[temp[i] >> 4];
-            *buf++ = hexChars[temp[i] & 0x0F];
-        }
-        return ret;
-    }
 
     // Decode b or bl and get the address it goes to
-    static bool DecodeBranchOrCall(const std::string &hex, BNM_PTR offset, BNM_PTR &outOffset) {
+    static bool DecodeBranchOrCall(BNM_PTR address, BNM_PTR &outOffset) {
 #if defined(__ARM_ARCH_7A__) || defined(__aarch64__)
-        if (!IsBranchHex(hex)) return false;
+        if (!IsBranch(address)) return false;
+        uint32_t insn = *(uint32_t*)address;
 #if defined(__aarch64__)
         uint8_t add = 0;
+        int32_t offset = (int32_t)((insn & 0x03FFFFFF) << 6) >> 4;
 #else
         uint8_t add = 8;
+        int32_t offset = (int32_t)((insn & 0x00FFFFFF) << 8) >> 6;
 #endif
-        // This line is based on the capstone code
-        outOffset = ((int32_t)(((((HexStr2Value(ReverseHexString(hex))) & (((uint32_t)1 << 24) - 1) << 0) >> 0) << 2) << (32 - 26)) >> (32 - 26)) + offset + add;
+        outOffset = address + offset + add;
 #elif defined(__i386__) || defined(__x86_64__)
-        if (!IsCallHex(hex)) return false;
+        if (!IsCall(address)) return false;
         // Address + address from the `call` + size of the instruction
-        outOffset = offset + HexStr2Value(ReverseHexString(hex).substr(0, 8)) + 5;
+        outOffset = address + *(int32_t*)(address + 1) + 5;
 #else
 #error "BNM only supports arm64, arm, x86 and x86_64"
         return false;
@@ -272,37 +235,40 @@ namespace AssemblerUtils {
         return true;
     }
 
+    // Dump memory to hex for diagnostics
+    static void DiagnosticDump(BNM_PTR address, size_t size) {
+        if (!address) return;
+        char buf[size * 3 + 1];
+        for (size_t i = 0; i < size; ++i) {
+            sprintf(buf + i * 3, "%02X ", *(uint8_t*)(address + i));
+        }
+        BNM_LOG_DEBUG("BNM: Diagnostic dump at %p: %s", (void*)address, buf);
+    }
+
     // Goes through memory and tries to find b-, bl- or call instructions
     // Then gets the address they go to
     // index: 1 is the first, 2 is the second, etc.
     static BNM_PTR FindNextJump(BNM_PTR start, uint8_t index) {
-#if defined(__ARM_ARCH_7A__) || defined(__aarch64__)
-        BNM_PTR offset = 0;
-        std::string curHex = ReadMemory<4>(start);
         BNM_PTR outOffset = 0;
-        bool out;
-        while (!(out = DecodeBranchOrCall(curHex, start + offset, outOffset)) || index != 1) {
-            offset += 4;
-            curHex = ReadMemory<4>(start + offset);
-            if (out) index--;
+        BNM_PTR currentPos = start;
+
+        for (uint8_t i = 0; i < index; ++i) {
+            bool found = false;
+            // Scan up to 200 bytes for the next jump
+            for (int j = 0; j < 200; j += (sizeof(BNM_PTR) == 8 ? 4 : 1)) {
+                if (DecodeBranchOrCall(currentPos + j, outOffset)) {
+                    currentPos = outOffset;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                BNM_LOG_WARN("BNM: Failed to find jump #%d starting from %p", i + 1, (void*)currentPos);
+                DiagnosticDump(currentPos, 32);
+                return 0;
+            }
         }
-        return outOffset;
-#elif defined(__i386__) || defined(__x86_64__)
-        BNM_PTR offset = 0;
-        std::string curHex = ReadMemory<1>(start);
-        BNM_PTR outOffset = 0;
-        bool out;
-        while (!(out = IsCallHex(curHex)) || index != 1) {
-            offset += 1;
-            curHex = ReadMemory<1>(start + offset);
-            if (out) index--;
-        }
-        DecodeBranchOrCall(ReadMemory<5>(start + offset), start + offset, outOffset);
-        return outOffset;
-#else
-#error "BNM only supports arm64, arm, x86 and x86_64"
-        return 0;
-#endif
+        return currentPos;
     }
 }
 
@@ -340,20 +306,53 @@ void *Utils::OffsetInLib(void *offsetInMemory) {
 #endif
 
 bool Internal::SetupBNM() {
-#if defined(__ARM_ARCH_7A__) || defined(__aarch64__)
+#if defined(__ARM_ARCH_7_A__) || defined(__aarch64__)
     const uint8_t count = 1;
 #elif defined(__i386__) || defined(__x86_64__)
     // x86 has one add-on call at start
     const uint8_t count = 2;
 #endif
 
+    // Helper for nested jump resolution
+    auto ResolveNestedJump = [](BNM_PTR start, uint8_t depth, uint8_t jumpIndex) -> BNM_PTR {
+        BNM_PTR current = start;
+        for (uint8_t i = 0; i < depth; ++i) {
+            current = AssemblerUtils::FindNextJump(current, jumpIndex);
+            if (!current) return 0;
+        }
+        return current;
+    };
+
     //! il2cpp::vm::Class::Init
     auto array_new_specific = (BNM_PTR) GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_array_new_specific));
-    if (!array_new_specific) {
-        BNM_LOG_ERR("BNM: Failed to find il2cpp_array_new_specific. CRITICAL ERROR.");
+    auto array_new = (BNM_PTR) GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_array_new));
+    auto value_box = (BNM_PTR) GetIl2CppMethod(BNM_OBFUSCATE_TMP(BNM_IL2CPP_API_il2cpp_value_box));
+
+    if (!array_new_specific || !array_new || !value_box) {
+        BNM_LOG_ERR("BNM: Critical API missing. Cannot proceed.");
         return false;
     }
-    il2cppMethods.Class$$Init = (decltype(il2cppMethods.Class$$Init)) AssemblerUtils::FindNextJump(AssemblerUtils::FindNextJump(array_new_specific, count), count);
+
+    // Consensus Search with CORRECT nesting
+    // Path 1 & 2: il2cpp_array_... -> Array::... -> Class::Init
+    // Path 3: il2cpp_value_box -> Class::Init
+    BNM_PTR p1 = ResolveNestedJump(array_new_specific, 2, count);
+    BNM_PTR p2 = ResolveNestedJump(array_new, 2, count);
+    BNM_PTR p3 = ResolveNestedJump(value_box, 1, count);
+
+    if (p1 && (p1 == p2 || p1 == p3)) il2cppMethods.Class$$Init = (decltype(il2cppMethods.Class$$Init)) p1;
+    else if (p2 && p2 == p3) il2cppMethods.Class$$Init = (decltype(il2cppMethods.Class$$Init)) p2;
+    else {
+        // Fallback to the most historical stable path if consensus fails
+        BNM_LOG_WARN("BNM: Class::Init consensus failed (P1:%p, P2:%p, P3:%p). Using Path 1 fallback.", (void*)p1, (void*)p2, (void*)p3);
+        il2cppMethods.Class$$Init = (decltype(il2cppMethods.Class$$Init)) p1;
+    }
+
+    if (!il2cppMethods.Class$$Init) {
+        BNM_LOG_ERR("BNM: Failed to resolve Class::Init. Modding will fail.");
+        return false;
+    }
+
     BNM_LOG_DEBUG(DBG_BNM_MSG_SetupBNM_Class_Init, OffsetInLib((void *)il2cppMethods.Class$$Init));
 
 
