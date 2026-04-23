@@ -599,7 +599,7 @@ static IL2CPP::Il2CppImage *MakeImage(std::string_view imageName) {
     newAsm->referencedAssemblyCount = 0;
 
     // Using this, BNM can check if it has created this assembly
-    newImg->nameToClassHashTable = (decltype(newImg->nameToClassHashTable)) -0x424e4d;
+    newImg->nameToClassHashTable = (decltype(newImg->nameToClassHashTable)) Internal::bnmImageSentinel;
 
     // Add an assembly to the list
     Internal::il2cppMethods.Assembly$$GetAllAssemblies()->push_back(newAsm);

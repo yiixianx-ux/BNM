@@ -15,7 +15,7 @@ BNM::Image::Image(const BNM::IL2CPP::Il2CppAssembly *assembly) {
 std::vector<BNM::Class> BNM::Image::GetClasses(bool includeInner) const {
     std::vector<IL2CPP::Il2CppClass *> classes{};
 
-    if (_data->nameToClassHashTable == (decltype(_data->nameToClassHashTable)) -0x424e4d) goto NEW_CLASSES;
+    if (_data->nameToClassHashTable == (decltype(_data->nameToClassHashTable)) Internal::bnmImageSentinel) goto NEW_CLASSES;
 
 
     if (Internal::il2cppMethods.il2cpp_image_get_class) {

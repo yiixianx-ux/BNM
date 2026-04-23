@@ -18,8 +18,8 @@ The BNM library provides a sophisticated symbolic modding framework for Unity/IL
 
 ### 1. Internal & Metadata Logic (Critical)
 - [x] **Implement Global Caching**: Replace $O(N)$ linear searches in `TryGetClassInImage` and `TryGetMethod` with a thread-safe `std::unordered_map` using `std::string_view` as keys.
-- [ ] **Robust String Handling**: Refactor `CompareImageName` and other string utilities to use explicit extension checks instead of hardcoded suffix removals.
-- [ ] **Secure Metadata Identification**: Replace the `0x424e4d` magic number with a more robust identification system to prevent potential data collisions with future IL2CPP versions.
+- [x] **Robust String Handling**: Refactor `CompareImageName` and other string utilities to use explicit extension checks instead of hardcoded suffix removals.
+- [x] **Secure Metadata Identification**: Replace the `0x424e4d` magic number with a more robust identification system to prevent potential data collisions with future IL2CPP versions.
 - [x] **Mandatory Synchronization**: Ensure global assembly list access is always protected, regardless of the `BNM_ALLOW_MULTI_THREADING_SYNC` flag.
 
 ### 2. Initialization & Assembly Scanning (High Risk)

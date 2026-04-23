@@ -41,7 +41,7 @@ IL2CPP::Il2CppClass *Internal::BNM_Class$$FromIl2CppType(IL2CPP::Il2CppReflectio
 
 void Internal::Image$$GetTypes(const IL2CPP::Il2CppImage *image, bool, std::vector<BNM::IL2CPP::Il2CppClass *> *target) {
     // Get non-BNM classes
-    if (image->nameToClassHashTable != (decltype(image->nameToClassHashTable))-0x424e4d)
+    if (image->nameToClassHashTable != (decltype(image->nameToClassHashTable))bnmImageSentinel)
         il2cppMethods.orig_Image$$GetTypes(image, false, target);
 
 #ifdef BNM_CLASSES_MANAGEMENT
@@ -82,7 +82,7 @@ IL2CPP::Il2CppClass *Internal::ClassesManagement::Class$$FromName(IL2CPP::Il2Cpp
     IL2CPP::Il2CppClass *ret = nullptr;
 
     // Check if image is BNM created
-    if (image->nameToClassHashTable != (decltype(image->nameToClassHashTable)) -0x424e4d)
+    if (image->nameToClassHashTable != (decltype(image->nameToClassHashTable)) bnmImageSentinel)
         ret = old_Class$$FromName(image, namespace_, name);
 
     // If through BNM, we are looking for a class

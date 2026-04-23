@@ -30,6 +30,8 @@ namespace BNM::Internal {
     std::shared_mutex cacheMutex{};
 #endif
 
+    void* bnmImageSentinel = (void*)&bnmImageSentinel;
+
     void *BNM_il2cpp_init_origin{};
     int (*old_BNM_il2cpp_init)(const char *){};
 
@@ -142,7 +144,7 @@ IL2CPP::Il2CppClass *Internal::TryGetClassInImage(const IL2CPP::Il2CppImage *ima
 
 #ifdef BNM_CLASSES_MANAGEMENT
     // Check if it's a BNM custom image
-    if (image->nameToClassHashTable == (decltype(image->nameToClassHashTable))-0x424e4d) {
+    if (image->nameToClassHashTable == (decltype(image->nameToClassHashTable))bnmImageSentinel) {
         ClassesManagement::bnmClassesMap.ForEachByImage(image, [&_namespace, &_name, &result](IL2CPP::Il2CppClass *BNM_class) -> bool {
             if (_namespace != BNM_class->namespaze || _name != BNM_class->name) return false;
             result = BNM_class;
