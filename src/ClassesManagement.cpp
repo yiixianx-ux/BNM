@@ -3,6 +3,17 @@
 #ifdef BNM_CLASSES_MANAGEMENT
 
 #include <Internals.hpp>
+#include <atomic>
+
+static inline void SafePatchVTable(BNM::IL2CPP::VirtualInvokeData* vtable, void* newMethodPtr, const BNM::IL2CPP::MethodInfo* newMethod) {
+    // 1. Update metadata first
+    auto atomicMethod = reinterpret_cast<std::atomic<const BNM::IL2CPP::MethodInfo*>*>(&vtable->method);
+    atomicMethod->store(newMethod, std::memory_order_release);
+
+    // 2. Update execution pointer with release semantics to ensure metadata is visible
+    auto atomicPtr = reinterpret_cast<std::atomic<void*>*>(&vtable->methodPtr);
+    atomicPtr->store(newMethodPtr, std::memory_order_release);
+}
 
 #define BNM_CLASS_ALLOCATED_METHODS_FLAG 0x01000000
 #define BNM_CLASS_ALLOCATED_FIELDS_FLAG 0x02000000
@@ -142,11 +153,18 @@ static void ModifyClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, Class t
 
             memcpy(newMethods + oldCount, methodsToAdd.data(), methodsToAdd.size() * sizeof(IL2CPP::MethodInfo *));
 
-            if ((klass->flags & BNM_CLASS_ALLOCATED_METHODS_FLAG) == BNM_CLASS_ALLOCATED_METHODS_FLAG) BNM_free(klass->methods);
+            // To prevent dangling pointers, we do not free the old methods array if it was already allocated.
+            // Classes modification happens rarely, so this small leak is acceptable for stability.
+            // if ((klass->flags & BNM_CLASS_ALLOCATED_METHODS_FLAG) == BNM_CLASS_ALLOCATED_METHODS_FLAG) BNM_free(klass->methods);
             klass->flags |= BNM_CLASS_ALLOCATED_METHODS_FLAG;
 
-            klass->methods = (const IL2CPP::MethodInfo **)newMethods;
-            klass->method_count += methodsToAdd.size();
+            // Atomic update of the methods array pointer
+            auto atomicMethods = reinterpret_cast<std::atomic<const IL2CPP::MethodInfo**>*>(&klass->methods);
+            atomicMethods->store((const IL2CPP::MethodInfo **)newMethods, std::memory_order_release);
+
+            // Atomic update of the method count
+            auto atomicCount = reinterpret_cast<std::atomic<uint16_t>*>(&klass->method_count);
+            atomicCount->store((uint16_t)(oldCount + methodsToAdd.size()), std::memory_order_release);
         }
     }
 
@@ -175,7 +193,19 @@ static void ModifyClass(MANAGEMENT_STRUCTURES::CustomClass *customClass, Class t
             BNM_LOG_DEBUG(DBG_BNM_MSG_ClassesManagement_ModifyClasses_Added_Field, field->_name.data());
         }
 
-        klass->fields = newFields;
+        if ((klass->flags & BNM_CLASS_ALLOCATED_FIELDS_FLAG) == BNM_CLASS_ALLOCATED_FIELDS_FLAG) {
+            // To prevent dangling pointers, we do not free the old fields array if it was already allocated.
+            // if ((klass->flags & BNM_CLASS_ALLOCATED_FIELDS_FLAG) == BNM_CLASS_ALLOCATED_FIELDS_FLAG) BNM_free(klass->fields);
+        }
+        klass->flags |= BNM_CLASS_ALLOCATED_FIELDS_FLAG;
+
+        // Atomic update of the fields array pointer
+        auto atomicFields = reinterpret_cast<std::atomic<IL2CPP::FieldInfo*>*>(&klass->fields);
+        atomicFields->store(newFields, std::memory_order_release);
+
+        // Atomic update of the field count
+        auto atomicCount = reinterpret_cast<std::atomic<uint16_t>*>(&klass->field_count);
+        atomicCount->store((uint16_t)(oldCount + newFieldsCount), std::memory_order_release);
     }
 
     customClass->myClass = klass;
@@ -680,8 +710,7 @@ static IL2CPP::MethodInfo *ProcessCustomMethod(MANAGEMENT_STRUCTURES::CustomMeth
             method->_origin = parent;
             method->_originalAddress = (void *) parent->methodPointer;
             originalMethod->slot = slot;
-            vTable->methodPtr = (void (*)()) method->_address;
-            vTable->method = originalMethod;
+            SafePatchVTable(vTable, method->_address, originalMethod);
             return originalMethod;
         }
     }
@@ -705,7 +734,7 @@ static IL2CPP::MethodInfo *ProcessCustomMethod(MANAGEMENT_STRUCTURES::CustomMeth
     if (auto vTable = TryFindVirtualMethod(target, originalMethod); vTable != nullptr) {
         method->_origin = (IL2CPP::MethodInfo *) vTable->method;
         method->_originalAddress = (void *) method->_origin->methodPointer;
-        vTable->methodPtr = (void(*)()) method->_address;
+        SafePatchVTable(vTable, method->_address, vTable->method);
         if (hooked) *hooked = true;
         return originalMethod;
     }

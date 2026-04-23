@@ -12,6 +12,7 @@ INCLUDE_DIRS := $(BNM_LOCAL_PATH)/include \
                 $(BNM_LOCAL_PATH)/src/private
 
 LOCAL_SRC_FILES := \
+    $(BNM_LOCAL_PATH)/src/AssemblerUtils.cpp \
     $(BNM_LOCAL_PATH)/src/Class.cpp \
     $(BNM_LOCAL_PATH)/src/ClassesManagement.cpp \
     $(BNM_LOCAL_PATH)/src/Coroutine.cpp \

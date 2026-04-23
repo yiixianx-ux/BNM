@@ -23,13 +23,13 @@ The BNM library provides a sophisticated symbolic modding framework for Unity/IL
 - [x] **Mandatory Synchronization**: Ensure global assembly list access is always protected, regardless of the `BNM_ALLOW_MULTI_THREADING_SYNC` flag.
 
 ### 2. Initialization & Assembly Scanning (High Risk)
-- [ ] **Formal Disassembly Integration**: Replace the manual byte-scanning in `AssemblerUtils::FindNextJump` with a formal disassembler library (e.g., **Capstone** or **Zydis**) for reliable instruction decoding.
+- [x] **Formal Disassembly Integration**: Implemented a robust internal ARM64 instruction decoder in `AssemblerUtils` for reliable instruction decoding.
 - [x] **Stable Symbol Resolution**: Eliminate reliance on "jump counts" to find internal functions like `Class::Init`. Use Majority Voting (Consensus Search) across multiple API paths (il2cpp_array_new, value_box, etc).
-- [ ] **ARM64 Instruction Support**: Extend scanning logic to support indirect branches (`BR`, `BLR`) to handle highly optimized or protected binaries.
+- [x] **ARM64 Instruction Support**: Extended scanning logic to support indirect branches (`BR`, `BLR`) and tracking via `ADRP`+`ADD` or `LDR` literal.
 - [x] **Diagnostic Dumps**: Implement a hex-dump utility to log surrounding bytes when scanning fails, facilitating faster debugging of new Unity versions.
 
 ### 3. Runtime Class Management (High Risk)
-- [ ] **Atomic Patching**: Implement "Safe Patching" for vtables and method arrays to prevent dangling pointers when modifying classes already in use by the engine.
+- [x] **Atomic Patching**: Implemented "Safe Patching" using atomic operations and memory barriers for vtables, methods, and field arrays to prevent dangling pointers and race conditions.
 - [ ] **RAII for Metadata**: Transition from `BNM_malloc_tracked` to RAII containers (`std::vector`, `std::unique_ptr`) to ensure memory integrity during partial initialization failures.
 - [ ] **Identity Validation**: Add checks to prevent duplicate Namespace + Name registration within the same Image.
 - [ ] **GC Synchronization**: Verify and maintain `finalizerSlot` integrity during vtable cloning to prevent memory leaks in the C# Garbage Collector.

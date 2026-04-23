@@ -25,6 +25,7 @@ set(INCLUDE_DIRS
 add_library(
         BNM
         STATIC
+        src/AssemblerUtils.cpp
         src/Class.cpp
         src/ClassesManagement.cpp
         src/Coroutine.cpp
