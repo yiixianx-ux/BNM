@@ -22,6 +22,14 @@ namespace BNM::Internal {
     std::map<uint32_t, BNM::Class> customListsMap{};
     int32_t finalizerSlot = -1;
 
+    ImageCacheMap imageCache{};
+    ClassCacheMap classCache{};
+    MethodCacheMap methodCache{};
+
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+    std::shared_mutex cacheMutex{};
+#endif
+
     void *BNM_il2cpp_init_origin{};
     int (*old_BNM_il2cpp_init)(const char *){};
 
@@ -79,11 +87,27 @@ namespace BNM::Internal {
 using namespace BNM;
 
 IL2CPP::Il2CppImage *Internal::TryGetImage(const std::string_view &_name) {
+    std::string nameStr(_name);
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+    std::shared_lock lock(Internal::cacheMutex);
+#endif
+    if (auto it = Internal::imageCache.find(nameStr); it != Internal::imageCache.end())
+        return it->second;
+
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+    lock.unlock();
+#endif
+
     auto &assemblies = *Internal::il2cppMethods.Assembly$$GetAllAssemblies();
 
     for (auto assembly : assemblies) {
         auto currentImage = Internal::il2cppMethods.il2cpp_assembly_get_image(assembly);
         if (!Internal::CompareImageName(currentImage, _name)) continue;
+
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+        std::unique_lock writeLock(Internal::cacheMutex);
+#endif
+        Internal::imageCache[nameStr] = currentImage;
         return currentImage;
     }
 
@@ -93,44 +117,73 @@ IL2CPP::Il2CppImage *Internal::TryGetImage(const std::string_view &_name) {
 IL2CPP::Il2CppClass *Internal::TryGetClassInImage(const IL2CPP::Il2CppImage *image, const std::string_view &_namespace, const std::string_view &_name) {
     if (!image) return nullptr;
 
-#ifdef BNM_CLASSES_MANAGEMENT
-    // Get BNM classes
-    if (image->nameToClassHashTable == (decltype(image->nameToClassHashTable))-0x424e4d) goto NEW_CLASSES;
+    std::string fullName;
+    fullName.reserve(_namespace.size() + _name.size() + 2);
+    fullName += _namespace;
+    fullName += "::";
+    fullName += _name;
+
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+    {
+        std::shared_lock lock(Internal::cacheMutex);
+        if (auto it = Internal::classCache.find(image); it != Internal::classCache.end()) {
+            if (auto it2 = it->second.find(fullName); it2 != it->second.end())
+                return it2->second;
+        }
+    }
+#else
+    if (auto it = Internal::classCache.find(image); it != Internal::classCache.end()) {
+        if (auto it2 = it->second.find(fullName); it2 != it->second.end())
+            return it2->second;
+    }
 #endif
 
-    if (Internal::il2cppMethods.il2cpp_image_get_class) {
-        size_t typeCount = image->typeCount;
+    IL2CPP::Il2CppClass *result = nullptr;
 
-        for (size_t i = 0; i < typeCount; ++i) {
-            auto cls = il2cppMethods.il2cpp_image_get_class(image, i);
-            if (cls->declaringType || !cls->flags && strcmp(cls->name, BNM_OBFUSCATE("<Module>")) == 0) continue;
-            if (_namespace == cls->namespaze && _name == cls->name) return cls;
-        }
-    } else {
-        std::vector<IL2CPP::Il2CppClass *> classes{};
-        Internal::Image$$GetTypes(image, false, &classes);
-
-        for (auto cls : classes) {
-            if (!cls) continue;
-            Internal::il2cppMethods.Class$$Init(cls);
-            if (cls->declaringType) continue;
-            if (cls->namespaze == _namespace && cls->name == _name) return cls;
+#ifdef BNM_CLASSES_MANAGEMENT
+    // Check if it's a BNM custom image
+    if (image->nameToClassHashTable == (decltype(image->nameToClassHashTable))-0x424e4d) {
+        ClassesManagement::bnmClassesMap.ForEachByImage(image, [&_namespace, &_name, &result](IL2CPP::Il2CppClass *BNM_class) -> bool {
+            if (_namespace != BNM_class->namespaze || _name != BNM_class->name) return false;
+            result = BNM_class;
+            return true;
+        });
+    } else 
+#endif
+    {
+        if (Internal::il2cppMethods.il2cpp_image_get_class) {
+            size_t typeCount = image->typeCount;
+            for (size_t i = 0; i < typeCount; ++i) {
+                auto cls = il2cppMethods.il2cpp_image_get_class(image, i);
+                if (cls->declaringType || !cls->flags && strcmp(cls->name, BNM_OBFUSCATE("<Module>")) == 0) continue;
+                if (_namespace == cls->namespaze && _name == cls->name) {
+                    result = cls;
+                    break;
+                }
+            }
+        } else {
+            std::vector<IL2CPP::Il2CppClass *> classes{};
+            Internal::Image$$GetTypes(image, false, &classes);
+            for (auto cls : classes) {
+                if (!cls) continue;
+                Internal::il2cppMethods.Class$$Init(cls);
+                if (cls->declaringType) continue;
+                if (cls->namespaze == _namespace && cls->name == _name) {
+                    result = cls;
+                    break;
+                }
+            }
         }
     }
 
-#ifdef BNM_CLASSES_MANAGEMENT
-    NEW_CLASSES:
-    IL2CPP::Il2CppClass *result = nullptr;
-    ClassesManagement::bnmClassesMap.ForEachByImage(image, [&_namespace, &_name, &result](IL2CPP::Il2CppClass *BNM_class) -> bool {
-        if (_namespace != BNM_class->namespaze || _name != BNM_class->name) return false;
-
-        result = BNM_class;
-        return true;
-    });
-    return result;
+    if (result) {
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+        std::unique_lock writeLock(Internal::cacheMutex);
 #endif
+        Internal::classCache[image][fullName] = result;
+    }
 
-    return nullptr;
+    return result;
 }
 Class Internal::TryMakeGenericClass(Class genericType, const std::vector<CompileTimeClass> &templateTypes) {
     if (!vmData.RuntimeType$$MakeGenericType.IsValid()) return {};

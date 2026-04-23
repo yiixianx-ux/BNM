@@ -141,11 +141,34 @@ MethodBase Class::GetMethod(const std::string_view &name, int parameters) const 
     if (!_data) return {};
     TryInit();
 
+    std::string fullName;
+    fullName.reserve(name.size() + 10);
+    fullName += name;
+    fullName += "#";
+    fullName += std::to_string(parameters);
+
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+    std::shared_lock lock(Internal::cacheMutex);
+#endif
+    if (auto it = Internal::methodCache.find(_data); it != Internal::methodCache.end()) {
+        if (auto it2 = it->second.find(fullName); it2 != it->second.end())
+            return it2->second;
+    }
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+    lock.unlock();
+#endif
+
     auto method = Internal::IterateMethods(*this, [&name, &parameters](IL2CPP::MethodInfo *method) {
         return name == method->name && (method->parameters_count == parameters || parameters == -1);
     });
 
-    if (method != nullptr) return method;
+    if (method != nullptr) {
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+        std::unique_lock writeLock(Internal::cacheMutex);
+#endif
+        Internal::methodCache[_data][fullName] = method;
+        return method;
+    }
 
     BNM_LOG_WARN(DBG_BNM_MSG_Class_GetMethod_Count_NotFound, _data->namespaze, _data->name, name.data(), parameters);
     return {};
@@ -158,13 +181,40 @@ MethodBase Class::GetMethod(const std::string_view &name, const std::initializer
 
     auto parameters = (uint8_t) parameterNames.size();
 
+    std::string fullName;
+    fullName.reserve(name.size() + parameters * 10 + 5);
+    fullName += name;
+    fullName += "(n:";
+    for (auto &paramName : parameterNames) {
+        fullName += paramName;
+        fullName += ",";
+    }
+    fullName += ")";
+
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+    std::shared_lock lock(Internal::cacheMutex);
+#endif
+    if (auto it = Internal::methodCache.find(_data); it != Internal::methodCache.end()) {
+        if (auto it2 = it->second.find(fullName); it2 != it->second.end())
+            return it2->second;
+    }
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+    lock.unlock();
+#endif
+
     auto method = Internal::IterateMethods(*this, [&name, &parameters, &parameterNames](IL2CPP::MethodInfo *method) {
         if (name != method->name || method->parameters_count != parameters) return false;
         for (uint8_t i = 0; i < parameters; ++i) if (Internal::il2cppMethods.il2cpp_method_get_param_name(method, i) != parameterNames.begin()[i]) return false;
         return true;
     });
 
-    if (method != nullptr) return method;
+    if (method != nullptr) {
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+        std::unique_lock writeLock(Internal::cacheMutex);
+#endif
+        Internal::methodCache[_data][fullName] = method;
+        return method;
+    }
 
     BNM_LOG_WARN(DBG_BNM_MSG_Class_GetMethod_Names_NotFound, _data->namespaze, _data->name, name.data(), parameters);
     return {};
@@ -175,6 +225,27 @@ MethodBase Class::GetMethod(const std::string_view &name, const std::initializer
     if (!_data) return {};
     TryInit();
     auto parameters = (uint8_t) parameterTypes.size();
+
+    std::string fullName;
+    fullName.reserve(name.size() + parameters * 16 + 5);
+    fullName += name;
+    fullName += "(t:";
+    for (auto &type : parameterTypes) {
+        fullName += std::to_string((BNM_PTR)type.ToIl2CppClass());
+        fullName += ",";
+    }
+    fullName += ")";
+
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+    std::shared_lock lock(Internal::cacheMutex);
+#endif
+    if (auto it = Internal::methodCache.find(_data); it != Internal::methodCache.end()) {
+        if (auto it2 = it->second.find(fullName); it2 != it->second.end())
+            return it2->second;
+    }
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+    lock.unlock();
+#endif
 
     auto method = Internal::IterateMethods(*this, [&name, parameters, &parameterTypes](IL2CPP::MethodInfo *method) {
         if (name != method->name || method->parameters_count != parameters) return false;
@@ -190,7 +261,13 @@ MethodBase Class::GetMethod(const std::string_view &name, const std::initializer
         return true;
     });
 
-    if (method != nullptr) return method;
+    if (method != nullptr) {
+#ifdef BNM_ALLOW_MULTI_THREADING_SYNC
+        std::unique_lock writeLock(Internal::cacheMutex);
+#endif
+        Internal::methodCache[_data][fullName] = method;
+        return method;
+    }
 
     BNM_LOG_WARN(DBG_BNM_MSG_Class_GetMethod_Types_NotFound, _data->namespaze, _data->name, name.data(), parameters);
     return {};
