@@ -49,7 +49,7 @@ namespace BNM::Internal {
         std::shared_mutex classesFindAccessMutex{};
 #endif
         // A list with all the classes that BNM should create/modify
-        std::vector<MANAGEMENT_STRUCTURES::CustomClass *> *classesManagementVector = nullptr;
+        std::vector<MANAGEMENT_STRUCTURES::CustomClass *> classesManagementVector{};
 
         IL2CPP::Il2CppClass *(*old_Class$$FromIl2CppType)(IL2CPP::Il2CppType *type){};
 

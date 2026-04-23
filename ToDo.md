@@ -30,7 +30,7 @@ The BNM library provides a sophisticated symbolic modding framework for Unity/IL
 
 ### 3. Runtime Class Management (High Risk)
 - [x] **Atomic Patching**: Implemented "Safe Patching" using atomic operations and memory barriers for vtables, methods, and field arrays to prevent dangling pointers and race conditions.
-- [ ] **RAII for Metadata**: Transition from `BNM_malloc_tracked` to RAII containers (`std::vector`, `std::unique_ptr`) to ensure memory integrity during partial initialization failures.
+- [x] **RAII for Metadata**: Implemented a thread-local `MetadataTracker` and transitioned temporary metadata storage to STL containers (`std::vector`) to ensure memory integrity and automated cleanup during partial initialization failures.
 - [ ] **Identity Validation**: Add checks to prevent duplicate Namespace + Name registration within the same Image.
 - [ ] **GC Synchronization**: Verify and maintain `finalizerSlot` integrity during vtable cloning to prevent memory leaks in the C# Garbage Collector.
 
